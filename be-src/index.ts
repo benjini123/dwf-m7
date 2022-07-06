@@ -1,84 +1,101 @@
 import * as express from "express";
 import * as crypto from "crypto";
 import * as jwt from "jsonwebtoken";
+import * as cors from "cors";
+import * as path from "path";
+import * as bodyParser from "body-parser";
 
-import { index } from "../be-src/lib/algolia";
-import { Mascota, User, Auth } from "./models/index";
+import { index } from "./lib/algolia";
+import { Pet, User, Auth, Report } from "./models/index";
+import { createUser, getUser } from "./controllers/users-controller";
+import { createToken } from "./controllers/auth-controller";
+import { createPet } from "./controllers/pets-controller";
 
-const SECRET = "odsjfiofjaspoij";
-
-function getSHA256ofString(text: string) {
-  return crypto.createHash("sha256").update(text).digest("hex");
-}
-
-// const port = process.env.PORT || 5656;
-const port = 5656;
+const port = process.env.PORT;
 const app = express();
 
-app.use(express.json());
+app.use(
+  bodyParser.json({
+    limit: "60mb",
+  })
+);
 
-//signup
+app.use(express.json());
+app.use(cors());
+
+//get user
+app.post("/users", async (req, res) => {
+  const { email } = req.body;
+
+  const user = await getUser(email).catch((err) => {
+    res.json(err.message);
+  });
+
+  res.json(user);
+});
+
+//get users
+app.get("/users", async (req, res) => {
+  const users = await User.findAll();
+
+  res.json(users);
+});
+
+//create User
 app.post("/auth", async (req, res) => {
-  const { email, name, birthdate, password } = req.body;
-  const [user, created] = await User.findOrCreate({
-    where: { email },
-    defaults: {
-      email,
-      name,
-      birthdate,
-    },
+  const { name, password, email } = req.body;
+
+  const user = await createUser(name, password, email).catch((err) => {
+    console.log("fallo el crear usuario", err.message);
+    res.json(err.message);
   });
-  const [auth, authCreated] = await Auth.findOrCreate({
-    where: { user_id: user.get("id") },
-    defaults: {
-      email,
-      password: getSHA256ofString(password),
-      user_id: user.get("id"),
-    },
-  });
-  res.json(auth);
+
+  res.json(user);
 });
 
 //sign in
 app.post("/auth/token", async (req, res) => {
   const { email, password } = req.body;
-  const passwordHasheado = getSHA256ofString(password);
 
-  const auth = await Auth.findOne({
-    where: { email, password: passwordHasheado },
+  const token = await createToken(email, password).catch((err) => {
+    console.log({ error: err.message });
+    res.status(400).send();
   });
-  const token = jwt.sign({ id: auth.get("user_id") }, SECRET);
 
-  if (auth) {
-    res.json({ token });
+  res.json(token);
+});
+
+//post pet with geoloc
+app.post("/mascotas", async (req, res) => {
+  const { latitud, longitud } = req.body;
+  if (latitud && longitud) {
+    console.log("llego el pet correctamente" + latitud + longitud);
+    const pet = await createPet(req.body);
+    res.json(pet);
   } else {
-    res.status(400).json({ error: "email or pass incorrect " });
+    res.status(400).json({
+      error: "debes agregar una ubicacion para dar de alta a esta mascota",
+    });
   }
 });
 
-app.post("/mascotas", async (req, res) => {
-  const { lat, lng } = req.body;
-  const newMascota = await Mascota.create(req.body);
-  const algoliaRes = await index
-    .saveObject({
-      objectID: newMascota.get("id"),
-      name: newMascota.get("name"),
-      state: newMascota.get("state"),
-      _geoloc: {
-        lat: newMascota.get("lat"),
-        lng: newMascota.get("lng"),
-      },
-    })
-    .catch((error) => {
-      res.status(404).json(error.message);
-    });
-
-  res.json(newMascota);
+app.get("/mascotas", async (req, res) => {
+  const mascotas = await Pet.findAll();
+  res.json(mascotas);
 });
 
-app.get("/mascotas", async (req, res) => {
-  const mascotas = await Mascota.findAll();
+app.get("/mascotas/reportadas", async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ where: { email } });
+  const mascotas = await Pet.findOne({
+    where: { user_id: user.get("user_id") },
+  });
   res.json(mascotas);
+});
+
+app.get("/auth", async (req, res) => {
+  const auth = await Auth.findAll();
+  res.json(auth);
 });
 
 app.get("/mascotas-cerca-de", async (req, res) => {
@@ -95,16 +112,18 @@ app.get("/mascotas-cerca-de", async (req, res) => {
 function authMiddleware(req, res, next) {
   const token = req.headers.authorization.split(" ")[1];
   try {
-    const data = jwt.verify(token, SECRET);
+    const data = jwt.verify(token, process.env.SECRET);
     next();
   } catch (e) {
     res.status(401).json({ error: "not allowed" });
   }
 }
 
-app.get("/me", authMiddleware, async (req, res) => {
+app.get("/me", authMiddleware, async (req, res, next) => {
   res.json({ token: "valido" });
 });
+
+// app.get("*", express.static(__dirname + "/public"));
 
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`);

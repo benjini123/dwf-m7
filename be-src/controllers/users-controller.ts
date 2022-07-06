@@ -1,35 +1,47 @@
-import { User } from "../models";
-import * as fs from "fs";
+import { error } from "console";
+import { User, Auth } from "../models";
+import { getSHA256ofString } from "./auth-controller";
 
-export async function createUser(userName, userBio, userPic) {
-  var stats = fs.statSync(userPic);
-  if (stats["size"] > 60) {
-    throw "el tamaño de tu imagen es demasiado grande, el limite es de 60mb";
+export async function createUser(
+  name: string,
+  password: string,
+  email: string
+) {
+  if (!name) {
+    throw "you must insert a name";
   }
 
-  if (!userName) {
-    throw "userName es necesario";
-  }
-
-  const user = await User.findOne({
-    where: {
-      name: userName,
+  const [userInstance, created] = await User.findOrCreate({
+    where: { email },
+    defaults: {
+      email,
+      name,
     },
   });
 
-  if (user) {
-    throw "error, user exists already";
-  } else {
-    const userCreated = await User.create({
-      userName,
-      userBio,
-      userPic,
+  console.log(created);
+
+  if (created) {
+    console.log("created");
+    const [authInstance, authCreated] = await Auth.findOrCreate({
+      where: { user_id: userInstance.get("id") },
+      defaults: {
+        name,
+        password: getSHA256ofString(password),
+        email: userInstance.get("email"),
+        userId: userInstance.get("id"),
+      },
     });
-    return user;
   }
+
+  return userInstance;
 }
 
-export async function getUser(userName: string) {
-  const user = await User.findOne({ where: { name: userName } });
-  return user;
+export async function getUser(email: string) {
+  const user = await User.findOne({ where: { email } });
+  if (!user) {
+    throw "user does not exist";
+  } else {
+    return user;
+  }
 }

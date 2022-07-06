@@ -1,8 +1,8 @@
 import { Model, DataTypes } from "sequelize";
-import { sequelize } from "../lib/sequelize";
+import { sequelize } from "../db/sequelize";
 
-export class Mascota extends Model {}
-Mascota.init(
+export class Pet extends Model {}
+Pet.init(
   {
     name: DataTypes.STRING,
     state: DataTypes.STRING,
@@ -11,6 +11,6 @@ Mascota.init(
   },
   {
     sequelize,
-    modelName: "mascota",
+    modelName: "pet",
   }
 );

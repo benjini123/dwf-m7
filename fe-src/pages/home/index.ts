@@ -1,4 +1,6 @@
 import { Router } from "@vaadin/router";
+import { state } from "../../state";
+const vector = require("url:../../media/Vector.png");
 
 customElements.define(
   "home-page",
@@ -10,32 +12,50 @@ customElements.define(
       this.render();
       this.addListeners();
     }
+
     addListeners() {
-      const buttonEl = this.querySelector(".main__boton-ubicacion");
-      const containerEl = this.querySelector(".main__dogs-container");
-      const locatorEl = this.querySelector(".main__locator") as any;
+      const buttonEl: any = this.querySelector(".main__boton-ubicacion");
+      const containerEl: any = this.querySelector(".main__dogs-container");
+      const locatorEl: any = this.querySelector(".main__locator");
 
       buttonEl.addEventListener("click", (e) => {
-        e.preventDefault;
+        e.preventDefault();
         locatorEl.style.display = "none";
-
-        window.navigator.geolocation.getCurrentPosition((position) => {
+        window.navigator.geolocation.getCurrentPosition((position: any) => {
           fetch(
-            "/comercios-cerca-de?lat=" +
-              position.coords.latitude +
-              "&lng=" +
-              position.coords.longitude
+            `${process.env.API_BASE_URL}/mascotas-cerca-de?lat=${position.coords.latitude}&lng=${position.coords.longitude}`,
+            { method: "get", headers: { "Content-Type": "application/json" } }
           )
             .then((res) => {
               return res.json();
             })
-            .then((data) => {
-              console.log(data);
+            .then((resData) => {
+              resData.forEach((ev: any) => {
+                const div = document.createElement("div");
+                div.innerHTML = `<lost-pet-card class="main__dog-card" location="${ev._geoloc.lat}" name="${ev.name}" pet-id="${ev.objectID}"><lost-pet-card>`;
+                containerEl.appendChild(div);
+              });
             })
-            .catch((error) => {
-              console.log(error);
+            .catch((err) => {
+              console.log(err.message);
             });
         });
+      });
+
+      const mainEl: any = this.querySelector(".main");
+
+      mainEl.addEventListener("report", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        mainEl.style.display = "none";
+
+        const { petId, name } = e.detail;
+        const formCustomEl = document.createElement("form-comp");
+        formCustomEl.setAttribute("id", `${petId}`);
+        formCustomEl.setAttribute("name", `${name}`);
+
+        this.appendChild(formCustomEl);
       });
     }
     render() {
@@ -43,22 +63,17 @@ customElements.define(
 
       <nav-comp></nav-comp>
       <main class="main">
-        <h1>Mascotas perdidas cerca tuyo</h1>
+        <h1 class="main__title">Mascotas perdidas cerca tuyo</h1>
         <div class="main__locator">
-          <h3>Para ver las mascotas reportadas cerca tuyo necesitamos permiso para conocer tu ubicación.</h3>
-          <button class="main__boton-ubicacion">Dar mi ubicacion</button>
+          <h4 class="main__notice">Para ver las mascotas reportadas cerca tuyo necesitamos permiso para conocer tu ubicación.</h4>
+          <button class="main__boton-ubicacion"><h5>Dar mi ubicacion</h5></button>
         </div>
         <div class="main__dogs-container">
-          <template>
-            <img src="../../media/doggo.png"/>
-            <h2></h2>
-            <h3></h3>
-            <a></a>
-          </template>
         </div>
       </main> 
       `;
-      this.className = "results__container";
+
+      this.className = "home__page";
     }
   }
 );
