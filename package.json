@@ -5,13 +5,14 @@
   "license": "MIT",
   "scripts": {
     "dev:be": "nodemon --watch 'be-src/**/*' -e ts --exec 'ts-node ./be-src/index.ts' ",
-    "dev:fe": "yarn parcel serve ./fe-src/index.html ",
+    "dev:fe": "parcel serve ./fe-src/index.html ",
     "build:be": "tsc ./be-src",
     "start": "node ./be-dist/index.ts",
     "build": "yarn run build:be && yarn run build:fe",
     "sync": "ts-node ./be-src/sync.ts"
   },
   "dependencies": {
+    "@types/node": "^18.0.3",
     "@vaadin/router": "^1.7.4",
     "algolia": "^0.0.0",
     "algoliasearch": "^4.13.0",
@@ -30,7 +31,8 @@
     "pg-hstore": "^2.3.4",
     "process": "^0.11.10",
     "sequelize": "^6.19.0",
-    "sequelize-cli": "^6.4.1"
+    "sequelize-cli": "^6.4.1",
+    "typescript": "^4.7.4"
   },
   "devDependencies": {
     "@parcel/transformer-image": "2.0.0-rc.0",
